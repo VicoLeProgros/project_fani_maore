@@ -6,43 +6,46 @@ import numpy as np
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
 
-@st.cache_data
-def load_data(path):
-    df = pd.read_csv(path, sep=';')
-    df.columns = df.columns.str.strip()
-    df['Time'] = pd.to_datetime(df['Time'], errors='coerce')
-    return df
-
-import locale
-
-
 st.set_page_config(
     layout="wide",
 )
-# Définir la locale en français
-locale.setlocale(locale.LC_TIME, 'fr_FR')
 
 # --- Chargement des données ---
+@st.cache_data
+def load_data(file_path):
+    data = pd.read_csv(file_path, parse_dates=['Time'])
+    return data
+
 data = load_data('basemayotte.csv')
 
 st.title("Analyse des Répliques")
 
-# Sélectionner l'année et le mois
-year_filter = st.sidebar.selectbox("Choisir l'année", data['Time'].dt.year.unique())
+# Créer un dictionnaire pour traduire les mois en français
+mois_fr = {
+    'January': 'Janvier', 'February': 'Février', 'March': 'Mars',
+    'April': 'Avril', 'May': 'Mai', 'June': 'Juin',
+    'July': 'Juillet', 'August': 'Août', 'September': 'Septembre',
+    'October': 'Octobre', 'November': 'Novembre', 'December': 'Décembre'
+}
 
-# Utiliser le nom du mois en français dans le selectbox
-# Pour cela, on formate la date en nom du mois (en fonction de la locale configurée)
-month_filter = st.sidebar.selectbox("Choisir le mois", data['Time'].dt.strftime('%B').unique())
+# Extraire l'année et le mois en français
+data['Année'] = data['Time'].dt.year
+data['Mois_Fr'] = data['Time'].dt.strftime('%B').map(mois_fr)
 
-# Filtrer les données par année et par mois (en comparant la chaîne de caractères du mois)
+# Sélection des filtres
+year_filter = st.sidebar.selectbox("Choisir l'année", sorted(data['Année'].unique()))
+month_filter = st.sidebar.selectbox("Choisir le mois", sorted(data['Mois_Fr'].unique(), key=lambda x: list(mois_fr.values()).index(x)))
+
+# Filtrer les données par année et par mois
 filtered_data = data[
-    (data['Time'].dt.year == year_filter) & 
-    (data['Time'].dt.strftime('%B') == month_filter)
+    (data['Année'] == year_filter) &
+    (data['Mois_Fr'] == month_filter)
 ]
 
 # Afficher le nombre d'événements pour la période choisie
 st.sidebar.markdown(f"**Événements pour {month_filter} {year_filter}**")
 st.sidebar.markdown(f"Nombre d'événements: {len(filtered_data)}")
+
 
 
 # --- 1. Sélection de l'événement principal ---
