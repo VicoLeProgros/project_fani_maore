@@ -5,3 +5,4 @@ pandas
 numpy
 geopandas
 shapely
+sklearn
