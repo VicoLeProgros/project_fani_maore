@@ -10,19 +10,16 @@ st.set_page_config(
     layout="wide",
 )
 
-# --- Chargement des données ---
 @st.cache_data
-def load_data(file_path):
-    data = pd.read_csv(file_path, parse_dates=['Time'])
-    return data
+def load_data(path):
+    df = pd.read_csv(path, sep=';')
+    df.columns = df.columns.str.strip()
+    df['Time'] = pd.to_datetime(df['Time'], errors='coerce')
+    return df
 
-data = load_data('basemayotte.csv')
+import locale
 
 st.title("Analyse des Répliques")
-
-st.set_page_config(
-    layout="wide",
-)
 
 try:
     locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')
