@@ -16,9 +16,7 @@ def load_data(path):
     df.columns = df.columns.str.strip()
     df['Time'] = pd.to_datetime(df['Time'], errors='coerce')
     return df
-
-st.title("Analyse des Répliques")
-
+    
 # --- Chargement des données ---
 data = load_data('basemayotte.csv')
 
