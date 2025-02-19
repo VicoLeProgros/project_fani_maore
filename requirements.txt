@@ -5,4 +5,4 @@ pandas
 numpy
 geopandas
 shapely
-sklearn
+scikit-learn
