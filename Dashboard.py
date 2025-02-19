@@ -20,32 +20,36 @@ data = load_data('basemayotte.csv')
 
 st.title("Analyse des Répliques")
 
-# Créer un dictionnaire pour traduire les mois en français
-mois_fr = {
-    'January': 'Janvier', 'February': 'Février', 'March': 'Mars',
-    'April': 'Avril', 'May': 'Mai', 'June': 'Juin',
-    'July': 'Juillet', 'August': 'Août', 'September': 'Septembre',
-    'October': 'Octobre', 'November': 'Novembre', 'December': 'Décembre'
-}
+st.set_page_config(
+    layout="wide",
+)
 
-# Extraire l'année et le mois en français
-data['Année'] = data['Time'].dt.year
-data['Mois_Fr'] = data['Time'].dt.strftime('%B').map(mois_fr)
+try:
+    locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')
+except locale.Error:
+    st.warning("La locale 'fr_FR.UTF-8' n'est pas disponible. Les mois seront affichés en anglais.")
 
-# Sélection des filtres
-year_filter = st.sidebar.selectbox("Choisir l'année", sorted(data['Année'].unique()))
-month_filter = st.sidebar.selectbox("Choisir le mois", sorted(data['Mois_Fr'].unique(), key=lambda x: list(mois_fr.values()).index(x)))
+# --- Chargement des données ---
+data = load_data('basemayotte.csv')
 
-# Filtrer les données par année et par mois
+st.title("Analyse des Répliques")
+
+# Sélectionner l'année et le mois
+year_filter = st.sidebar.selectbox("Choisir l'année", data['Time'].dt.year.unique())
+
+# Utiliser le nom du mois en français dans le selectbox
+# Pour cela, on formate la date en nom du mois (en fonction de la locale configurée)
+month_filter = st.sidebar.selectbox("Choisir le mois", data['Time'].dt.strftime('%B').unique())
+
+# Filtrer les données par année et par mois (en comparant la chaîne de caractères du mois)
 filtered_data = data[
-    (data['Année'] == year_filter) &
-    (data['Mois_Fr'] == month_filter)
+    (data['Time'].dt.year == year_filter) & 
+    (data['Time'].dt.strftime('%B') == month_filter)
 ]
 
 # Afficher le nombre d'événements pour la période choisie
 st.sidebar.markdown(f"**Événements pour {month_filter} {year_filter}**")
 st.sidebar.markdown(f"Nombre d'événements: {len(filtered_data)}")
-
 
 
 # --- 1. Sélection de l'événement principal ---
