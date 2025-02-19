@@ -17,14 +17,7 @@ def load_data(path):
     df['Time'] = pd.to_datetime(df['Time'], errors='coerce')
     return df
 
-import locale
-
 st.title("Analyse des Répliques")
-
-try:
-    locale.setlocale(locale.LC_TIME, 'fr_FR.UTF-8')
-except locale.Error:
-    st.warning("La locale 'fr_FR.UTF-8' n'est pas disponible. Les mois seront affichés en anglais.")
 
 # --- Chargement des données ---
 data = load_data('basemayotte.csv')
