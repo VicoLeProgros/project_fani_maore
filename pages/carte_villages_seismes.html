@@ -64,9 +64,33 @@
 <body>
     <div id="filter-panel">
         <div id="excel-container">
-            <input type="file" id="excel-file" />
-            <button onclick="readExcel()">Importer les villages</button>
+            <button onclick="loadExcelFromGitHub()">Importer les villages</button>
         </div>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+        <script>
+            const GITHUB_FILE_URL = "https://raw.githubusercontent.com/VicoLeProgros/project_fani_maore/main/pages/types_batiments.xlsx";
+        
+            async function loadExcelFromGitHub() {
+                try {
+                    const response = await fetch(GITHUB_FILE_URL);
+                    const arrayBuffer = await response.arrayBuffer();
+        
+                    // Lire le fichier Excel avec SheetJS
+                    const workbook = XLSX.read(arrayBuffer, { type: "array" });
+                    const sheetName = workbook.SheetNames[0]; // Première feuille
+                    const sheet = workbook.Sheets[sheetName];
+        
+                    // Convertir en JSON
+                    const jsonData = XLSX.utils.sheet_to_json(sheet);
+                    console.log("Données du fichier Excel :", jsonData);
+        
+                    // TODO : Traitez les données ici (par ex. mise à jour d'une liste déroulante)
+                } catch (error) {
+                    console.error("Erreur lors du chargement du fichier Excel :", error);
+                }
+            }
+        </script>
 
         <h2>Filtrer les villages</h1>
         <label for="filter-soil">Type de sol principal :</label>
