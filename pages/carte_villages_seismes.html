@@ -1,23 +1,24 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Carte interactive</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.4/xlsx.full.min.js"></script>
-    
+
     <style>
         body {
             display: flex;
-            flex-direction: column; /* Change la direction en colonne */
-            align-items: center; /* Centre les éléments */
+            flex-direction: column;
+            align-items: center;
             font-family: Arial, sans-serif;
-            margin: 0; /* Supprime les marges par défaut */
+            margin: 0;
         }
 
         #map {
-            height: 90vh; /* Ajuste la hauteur pour laisser de la place en dessous */
+            height: 90vh;
             width: 100%;
         }
 
@@ -26,7 +27,7 @@
             text-align: center;
             background-color: rgba(255, 255, 255, 0.9);
             padding: 10px;
-            border-top: 1px solid #ccc; /* Ajoute une séparation */
+            border-top: 1px solid #ccc;
         }
 
         #filter-panel {
@@ -56,19 +57,18 @@
         }
 
         table {
-            margin: 10px auto; /* Centre le tableau */
+            margin: 10px auto;
         }
-
-        
     </style>
 </head>
-<body>
-    <div id="excel-container">
-        <button onclick="readExcel()">Importer les villages</button>
-    </div>
-    
 
-        <h2>Filtrer les villages</h1>
+<body>
+    <div id="filter-panel">
+        <div id="excel-container">
+            <button onclick="importVillages()">Importer les villages</button>
+        </div>
+
+        <h2>Filtrer les villages</h2>
         <label for="filter-soil">Type de sol principal :</label>
         <select id="filter-soil">
             <option value="all">Tous</option>
@@ -76,8 +76,8 @@
             <option value="Béton">Béton</option>
             <option value="Carrelage">Carrelage</option>
         </select>
-    
-        <br></br>
+
+        <br>
 
         <label for="filter-vulnerability">Indice de vulnérabilité :</label>
         <input type="range" id="filter-vulnerability" min="0" max="100" step="1" value="0">
@@ -88,10 +88,10 @@
         <label for="filter-population">Population minimale :</label>
         <input type="number" id="filter-population" min="0" value="0" step="1" />
 
-        <br></br>
-        <button onclick="readExcel()">Appliquer les filtres</button>
         <br>
-    
+        <button onclick="applyFilters()">Appliquer les filtres</button>
+        <br>
+
         <h2>Rechercher un village</h2>
         <label for="village-select">Sélectionner un village :</label>
         <select id="village-select">
@@ -99,260 +99,313 @@
         </select>
 
         <br>
-        <h2>Création d'un séisme</h1>
+        <h2>Création d'un séisme</h2>
         <label for="filter-range">Magnitude (1 à 10) :</label>
         <input type="range" id="filter-range" min="1" max="10" step="0.1" value="5">
         <div id="value-display">Magnitude choisie : 5</div>
     </div>
 
-<div id="map"></div>
+    <div id="map"></div>
 
-<div id="cities-list">
-    <h3>Villes touchées :</h3>
-    <ul id="cities"></ul>
-</div>
+    <div id="cities-list">
+        <h3>Villes touchées :</h3>
+        <ul id="cities"></ul>
+    </div>
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script>
-
-    // Initialisation de la carte
-    var map = L.map('map').setView([-12.8516, 45.0485], 11);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    // Ajout d'une légende pour expliquer les couleurs des cercles
-    var legend = L.control({ position: 'bottomright' });
-
-    legend.onAdd = function(map) {
-        var div = L.DomUtil.create('div', 'info legend');
-
-        // Ajout du titre
-        div.innerHTML = "<h4>Indice de vulnérabilité</h4>";
-
-        var grades = [0, 50, 80]; // Seuils pour la vulnérabilité
-        var labels = ['<strong>Légende</strong>'];
-
-        // Fonction pour récupérer la couleur correspondant aux indices de vulnérabilité
-        function getColor(v) {
-            return v >= 80 ? 'red' :
-                v >= 50 ? 'orange' :
-                            'green';
-        }
-
-        // Générer les éléments de la légende
-        for (var i = 0; i < grades.length; i++) {
-            div.innerHTML +=
-                '<i style="background:' + getColor(grades[i]) + '; width: 18px; height: 18px; display: inline-block; margin-right: 5px;"></i> ' +
-                (i === 0 ? 'Faible' : i === 1 ? 'Moyenne' : 'Élevée') + '<br>';
-        }
-
-        return div;
-    };
-
-    // Ajouter la légende à la carte
-    legend.addTo(map);
-
-
-    let villagesData = []; // Tableau pour stocker les données des villages
-
-
-    
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
-    function readExcel() {
-        const excelUrl = './types_batiments.xlsx';  // Chemin vers ton fichier Excel
+        var map = L.map('map').setView([-12.8516, 45.0485], 11);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        fetch(excelUrl)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error("Le fichier Excel n'a pas pu être téléchargé.");
-                }
-                return response.arrayBuffer();  // Récupérer le fichier sous forme de buffer
-            })
-            .then(data => {
-                const workbook = XLSX.read(data, { type: 'array' });
-                const sheetName = workbook.SheetNames[0];  // Prendre la première feuille
-                const worksheet = workbook.Sheets[sheetName];
+        var legend = L.control({ position: 'bottomright' });
 
-                let villagesData = XLSX.utils.sheet_to_json(worksheet);
+        legend.onAdd = function (map) {
+            var div = L.DomUtil.create('div', 'info legend');
+            div.innerHTML = "<h4>Indice de vulnérabilité</h4>";
 
-                if (villagesData.length === 0) {
-                    alert("Le fichier semble vide ou mal formaté.");
-                    return;
-                }
+            var grades = [0, 50, 80];
+            var labels = ['<strong>Légende</strong>'];
 
-                // Fonction pour mettre à jour la liste déroulante avec les villages, triés par ordre alphabétique
-                function updateVillageSelect() {
-                    const villageSelect = document.getElementById('village-select');
-                    villageSelect.innerHTML = '<option value="">-- Choisissez un village --</option>'; // Vider l'ancienne liste
+            function getColor(v) {
+                return v >= 80 ? 'red' :
+                    v >= 50 ? 'orange' :
+                        'green';
+            }
 
-                    // Trier les villages par nom alphabétiquement
-                    const sortedVillages = villagesData.sort((a, b) => {
-                        const nameA = a["Nom Village"].toUpperCase(); // Ignorer la casse
-                        const nameB = b["Nom Village"].toUpperCase(); // Ignorer la casse
-                        if (nameA < nameB) {
-                            return -1;
-                        }
-                        if (nameA > nameB) {
-                            return 1;
-                        }
-                        return 0;
-                    });
+            for (var i = 0; i < grades.length; i++) {
+                div.innerHTML +=
+                    '<i style="background:' + getColor(grades[i]) + '; width: 18px; height: 18px; display: inline-block; margin-right: 5px;"></i> ' +
+                    (i === 0 ? 'Faible' : i === 1 ? 'Moyenne' : 'Élevée') + '<br>';
+            }
 
-                    // Ajouter les villages triés à la liste déroulante
-                    sortedVillages.forEach(village => {
-                        const option = document.createElement('option');
-                        option.value = village["Nom Village"];
-                        option.textContent = village["Nom Village"];
-                        villageSelect.appendChild(option);
-                    });
-                }
+            return div;
+        };
 
-                // Appeler cette fonction après avoir chargé les villages dans readExcel
-                updateVillageSelect();
+        legend.addTo(map);
 
-                // Nettoyage de la carte avant d'ajouter les nouveaux villages
-                map.eachLayer(layer => {
-                    if (layer instanceof L.CircleMarker) {
-                        map.removeLayer(layer);
+        let villagesData = [];
+
+        function importVillages() {
+            const excelUrl = './types_batiments.xlsx';
+
+            fetch(excelUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Le fichier Excel n\'a pas pu être téléchargé.');
                     }
+                    return response.arrayBuffer();
+                })
+                .then(data => {
+                    readExcel(data);
+                })
+                .catch(error => {
+                    console.error('Erreur lors du téléchargement du fichier Excel:', error);
                 });
+        }
 
-                // Récupérer les filtres
-                const selectedSoil = document.getElementById('filter-soil').value;
-                const minVulnerability = parseFloat(document.getElementById('filter-vulnerability').value);
-                const minPopulation = parseFloat(document.getElementById('filter-population').value);
+        function readExcel(data) {
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
 
-                // Seuils de normalisation cohérents avec addVillageToMap()
-                const maxPopulation = 17733;  // maximum théorique de population
-                const maxPctTerre = 100;      // 100% de terre
+            villagesData = XLSX.utils.sheet_to_json(sheet);
+            console.log(villagesData);
+
+            updateVillageSelect();
+        }
+
+        function applyFilters() {
+            const selectedSoil = document.getElementById('filter-soil').value;
+            const minVulnerability = parseFloat(document.getElementById('filter-vulnerability').value);
+            const minPopulation = parseFloat(document.getElementById('filter-population').value);
+
+            const maxPopulation = 17733;
+            const maxPctTerre = 100;
+            const maxhablogements = 5.1;
+            const maxIndiceVulnerabilite = (maxPctTerre * 3) * Math.log2(maxPopulation) * maxhablogements;
+
+            map.eachLayer(layer => {
+                if (layer instanceof L.CircleMarker) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            villagesData.forEach(village => {
+                if (village["Latitude"] && village["Longitude"]) {
+                    let lat = parseFloat(village["Latitude"].toString().replace(",", "."));
+                    let lng = parseFloat(village["Longitude"].toString().replace(",", "."));
+
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        const totalLogements = parseFloat(village["Total"] || 0);
+                        const popMoyLogement = parseFloat(village["Nombre moyen de personnes par logement"] || 0);
+                        const population = totalLogements * popMoyLogement;
+
+                        const pctTerre = totalLogements ? (village["Sol en terre battue"] / totalLogements * 100) : 0;
+                        const pctBeton = totalLogements ? (village["Sol en beton"] / totalLogements * 100) : 0;
+                        const pctCarrelage = totalLogements ? (village["Sol en carrelage ou autre"] / totalLogements * 100) : 0;
+
+                        const logPopulation = population > 0 ? Math.log2(population) : 1;
+                        const indiceVulnerabiliteBrut = (pctTerre * 3 + pctBeton * 2 + pctCarrelage * 1) * logPopulation * popMoyLogement;
+
+                        const indiceNormalise = Math.min(Math.max((indiceVulnerabiliteBrut / maxIndiceVulnerabilite) * 100, 0), 100);
+
+                        let mainSoil = "Autre";
+                        if (pctTerre > pctBeton && pctTerre > pctCarrelage) mainSoil = "Terre Battue";
+                        else if (pctBeton > pctCarrelage) mainSoil = "Béton";
+                        else mainSoil = "Carrelage";
+
+                        if ((selectedSoil === "all" || selectedSoil === mainSoil) &&
+                            indiceNormalise >= minVulnerability &&
+                            population >= minPopulation) {
+                            addVillageToMap(village);
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateVillageSelect() {
+            const villageSelect = document.getElementById('village-select');
+            villageSelect.innerHTML = '<option value="">-- Choisissez un village --</option>';
+
+            const sortedVillages = villagesData.sort((a, b) => {
+                const nameA = a["Nom Village"].toUpperCase();
+                const nameB = b["Nom Village"].toUpperCase();
+                if (nameA < nameB) {
+                    return -1;
+                }
+                if (nameA > nameB) {
+                    return 1;
+                }
+                return 0;
+            });
+
+            sortedVillages.forEach(village => {
+                const option = document.createElement('option');
+                option.value = village["Nom Village"];
+                option.textContent = village["Nom Village"];
+                villageSelect.appendChild(option);
+            });
+        }
+
+        function addVillageToMap(village) {
+            let lat = village["Latitude"];
+            let lng = village["Longitude"];
+
+            if (typeof lat === "string") lat = parseFloat(lat.replace(",", "."));
+            if (typeof lng === "string") lng = parseFloat(lng.replace(",", "."));
+
+            if (!isNaN(lat) && !isNaN(lng)) {
+                const totalLogements = village["Total"] ? parseFloat(village["Total"]) : 0;
+                const popMoyLogement = village["Nombre moyen de personnes par logement"] ? parseFloat(village["Nombre moyen de personnes par logement"]) : 0;
+                const population = totalLogements * popMoyLogement;
+
+                const pctTerre = totalLogements ? (village["Sol en terre battue"] / totalLogements * 100) : 0;
+                const pctBeton = totalLogements ? (village["Sol en beton"] / totalLogements * 100) : 0;
+                const pctCarrelage = totalLogements ? (village["Sol en carrelage ou autre"] / totalLogements * 100) : 0;
+
+                const logPopulation = population > 0 ? Math.log2(population) : 1;
+                const habitantsParLogement = village["Nombre moyen de personnes par logement"];
+                const indiceVulnerabiliteBrut = (pctTerre * 3 + pctBeton * 2 + pctCarrelage * 1) * logPopulation * habitantsParLogement;
+
+                const maxPopulation = 17733;
+                const maxPctTerre = 100;
                 const maxhablogements = 5.1;
                 const maxIndiceVulnerabilite = (maxPctTerre * 3) * Math.log2(maxPopulation) * maxhablogements;
+                const indiceNormalise = (indiceVulnerabiliteBrut / maxIndiceVulnerabilite) * 100;
+                const indiceNormaliseArrondi = Math.min(Math.max(indiceNormalise, 0), 100).toFixed(2);
 
-                // Ajout des villages filtrés sur la carte
-                villagesData.forEach(village => {
-                    if (village["Latitude"] && village["Longitude"]) {
-                        let lat = parseFloat(village["Latitude"].toString().replace(",", "."));
-                        let lng = parseFloat(village["Longitude"].toString().replace(",", "."));
+                function getColorByVulnerability(indiceNormaliseArrondi) {
+                    if (indiceNormaliseArrondi >= 80) return "red";
+                    if (indiceNormaliseArrondi >= 50) return "orange";
+                    return "green";
+                }
 
-                        if (!isNaN(lat) && !isNaN(lng)) {
-                            const totalLogements = parseFloat(village["Total"] || 0);
-                            const popMoyLogement = parseFloat(village["Nombre moyen de personnes par logement"] || 0);
-                            const population = totalLogements * popMoyLogement;
+                const marker = L.circleMarker([lat, lng], {
+                    radius: 5,
+                    color: getColorByVulnerability(indiceNormaliseArrondi),
+                    fillColor: getColorByVulnerability(indiceNormaliseArrondi),
+                    fillOpacity: 0.7,
+                }).addTo(map);
 
-                            const pctTerre = totalLogements ? (village["Sol en terre battue"] / totalLogements * 100) : 0;
-                            const pctBeton = totalLogements ? (village["Sol en beton"] / totalLogements * 100) : 0;
-                            const pctCarrelage = totalLogements ? (village["Sol en carrelage ou autre"] / totalLogements * 100) : 0;
+                marker.bindPopup(`
+                <strong>${village["Nom Village"]}</strong><br>
+                Sol en Terre Battue: ${pctTerre.toFixed(1)}%<br>
+                Sol en Béton: ${pctBeton.toFixed(1)}%<br>
+                Sol en Carrelage: ${pctCarrelage.toFixed(1)}%<br>
+                Total logements: ${totalLogements}<br>
+                <strong>Population estimée: ${Math.round(population)}</strong><br>
+                Population moyenne par logement: ${popMoyLogement.toFixed(1)}<br>
+                <strong>Indice de Vulnérabilité: ${indiceNormaliseArrondi}</strong>
+            `);
 
-                            const logPopulation = population > 0 ? Math.log2(population) : 1;
-                            const indiceVulnerabiliteBrut = (pctTerre * 3 + pctBeton * 2 + pctCarrelage * 1) * logPopulation * popMoyLogement;
-
-                            // Normalisation de l'indice pour être entre 0 et 100
-                            const indiceNormalise = Math.min(Math.max((indiceVulnerabiliteBrut / maxIndiceVulnerabilite) * 100, 0), 100);
-
-                            let mainSoil = "Autre";
-                            if (pctTerre > pctBeton && pctTerre > pctCarrelage) mainSoil = "Terre Battue";
-                            else if (pctBeton > pctCarrelage) mainSoil = "Béton";
-                            else mainSoil = "Carrelage";
-
-                            // Appliquer les filtres
-                            if ((selectedSoil === "all" || selectedSoil === mainSoil) &&
-                                indiceNormalise >= minVulnerability &&
-                                population >= minPopulation) {
-                                addVillageToMap(village);
-                            }
-                        }
-                    }
-                });
-            })
-            .catch(error => {
-                console.error("Erreur lors du téléchargement du fichier Excel:", error);
-            });
-    }
-</script>
-
-
-    // Fonction de recherche de village
-    function searchVillage() {
-        const searchTerm = document.getElementById('search-village').value.toLowerCase(); // Récupère le texte de recherche et le convertit en minuscules
-
-        if (!searchTerm) {
-            alert("Veuillez entrer un nom de village.");
-            return;
+            } else {
+                console.warn("Coordonnées invalides pour", village["Nom Village"]);
+            }
         }
 
-        // Nettoyer la carte avant de rajouter les villages filtrés
-        map.eachLayer(layer => {
-            if (layer instanceof L.CircleMarker) {
-                map.removeLayer(layer);
-            }
-        });
+        var previousMarker = null;
+        var previousCircles = [];
 
-        // Filtrer les villages par nom
-        villagesData.forEach(village => {
-            const villageName = village["Nom Village"].toLowerCase();
-            
-            if (villageName.includes(searchTerm) && village["Latitude"] && village["Longitude"]) {
-                let lat = parseFloat(village["Latitude"].toString().replace(",", "."));
-                let lng = parseFloat(village["Longitude"].toString().replace(",", "."));
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+        }
 
-                if (!isNaN(lat) && !isNaN(lng)) {
-                    addVillageToMap(village); // Ajouter le village filtré à la carte
+        function intensityAtCity(lat1, lon1, lat2, lon2, magnitude, beta) {
+            let distance = calculateDistance(lat1, lon1, lat2, lon2) / 1000;
+            distance = Math.max(distance, 1);
+            return Math.max(magnitude - beta * Math.log10(distance), 0);
+        }
+
+        function getIntensityCategory(intensity) {
+            if (intensity >= 7) return 'Élevée';
+            if (intensity >= 4) return 'Moyenne';
+            return 'Faible';
+        }
+
+        function updateCitiesList(lat, lng, radius, magnitude) {
+            const beta = 4;
+            const categorizedCities = { 'Élevée': [], 'Moyenne': [], 'Faible': [] };
+
+            villagesData.forEach(village => {
+                const villageLat = parseFloat(village["Latitude"].toString().replace(",", "."));
+                const villageLng = parseFloat(village["Longitude"].toString().replace(",", "."));
+
+                if (!isNaN(villageLat) && !isNaN(villageLng)) {
+                    const distance = calculateDistance(lat, lng, villageLat, villageLng);
+                    const intensity = intensityAtCity(lat, lng, villageLat, villageLng, magnitude, beta);
+                    const category = getIntensityCategory(intensity);
+
+                    if (distance <= radius) {
+                        categorizedCities[category].push({
+                            name: village["Nom Village"],
+                            distance: distance,
+                            intensity: intensity.toFixed(2)
+                        });
+                    }
                 }
+            });
+
+            const citiesList = document.getElementById('cities');
+            citiesList.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+
+            Object.keys(categorizedCities).forEach(category => {
+                if (categorizedCities[category].length > 0) {
+                    categorizedCities[category].sort((a, b) => b.intensity - a.intensity);
+
+                    let header = document.createElement('h4');
+                    header.textContent = category;
+                    fragment.appendChild(header);
+
+                    let table = document.createElement('table');
+                    table.style.width = "60%";
+                    table.style.borderCollapse = "collapse";
+
+                    let thead = document.createElement('thead');
+                    thead.innerHTML = `
+                    <tr>
+                        <th style="border: 1px solid #000; padding: 3px;">Nom du village</th>
+                        <th style="border: 1px solid #000; padding: 3px;">Distance (km)</th>
+                        <th style="border: 1px solid #000; padding: 3px;">Intensité</th>
+                    </tr>`;
+                    table.appendChild(thead);
+
+                    let tbody = document.createElement('tbody');
+                    categorizedCities[category].forEach(city => {
+                        let row = document.createElement('tr');
+                        row.innerHTML = `
+                        <td style="border: 1px solid #000; padding: 3px;">${city.name}</td>
+                        <td style="border: 1px solid #000; padding: 3px;">${Math.round(city.distance / 1000)}</td>
+                        <td style="border: 1px solid #000; padding: 3px;">${city.intensity}</td>
+                    `;
+                        tbody.appendChild(row);
+                    });
+                    table.appendChild(tbody);
+                    fragment.appendChild(table);
+                }
+            });
+
+            citiesList.appendChild(fragment);
+        }
+
+        function createGradientCircle(lat, lng, magnitude) {
+            if (previousMarker) {
+                map.removeLayer(previousMarker);
+                previousCircles.forEach(circle => map.removeLayer(circle));
+                previousCircles = [];
             }
-        });
-    }
 
-    // Fonction pour ajouter un village à la carte
-    function addVillageToMap(village) {
-        // Vérification et correction des latitudes/longitudes
-        let lat = village["Latitude"];
-        let lng = village["Longitude"];
+            var marker = L.marker([lat, lng]).addTo(map)
+                .bindPopup("Séisme : Magnitude " + magnitude + "<br><strong>Cliquez pour supprimer</strong>");
 
-        if (typeof lat === "string") lat = parseFloat(lat.replace(",", "."));
-        if (typeof lng === "string") lng = parseFloat(lng.replace(",", "."));
-
-        if (!isNaN(lat) && !isNaN(lng)) {
-            
-
-            // Vérification et conversion des valeurs
-            const totalLogements = village["Total"] ? parseFloat(village["Total"]) : 0;
-            const popMoyLogement = village["Nombre moyen de personnes par logement"] ? parseFloat(village["Nombre moyen de personnes par logement"]) : 0;
-            const population = totalLogements * popMoyLogement;
-
-            // Calcul des pourcentages de sols
-            const pctTerre = totalLogements ? (village["Sol en terre battue"] / totalLogements * 100) : 0;
-            const pctBeton = totalLogements ? (village["Sol en beton"] / totalLogements * 100) : 0;
-            const pctCarrelage = totalLogements ? (village["Sol en carrelage ou autre"] / totalLogements * 100) : 0;
-
-            // Calcul de l'indice de vulnérabilité brut
-            const logPopulation = population > 0 ? Math.log2(population) : 1;
-            const habitantsParLogement = village["Nombre moyen de personnes par logement"];  // Nombre moyen d'habitants par logement
-
-            // Calcul de l'indice de vulnérabilité en tenant compte du nombre d'habitants par logement
-            const indiceVulnerabiliteBrut = (pctTerre * 3 + pctBeton * 2 + pctCarrelage * 1) * logPopulation * habitantsParLogement;
-
-            // Seuils maximum et minimum possibles pour les calculs
-            const maxPopulation = 17733;  // maximum théorique de population
-            const maxPctTerre = 100;      // 100% de terre
-            const maxhablogements = 5.1;
-
-            // Calcul de l'indice normalisé entre 0 et 100
-            const maxIndiceVulnerabilite = (maxPctTerre * 3) * Math.log2(maxPopulation) * maxhablogements;
-            const indiceNormalise = (indiceVulnerabiliteBrut / maxIndiceVulnerabilite) * 100;
-
-            const indiceNormaliseArrondi = Math.min(Math.max(indiceNormalise, 0), 100).toFixed(2);
-
-            // Fonction pour déterminer la couleur du cercle
-            function getColorByVulnerability(indiceNormaliseArrondi) {
-                if (indiceNormaliseArrondi >= 80) return "red";       // Très vulnérable 🔴
-                if (indiceNormaliseArrondi >= 50) return "orange";    // Moyennement vulnérable 🟠
-                return "green";                       // Peu vulnérable 🟢
-            }
-
-            // Création d'un cercle de taille fixe (rayon = 8)
-            const marker = L.circleMarker([lat, lng], {
-                radius: 5,  // Taille fixe pour tous les villages
-                color: getColorByVulnerability(indiceNormaliseArrondi),
-                fillColor: getColorByVulnerability(indiceNormaliseArrondi),
+            var maxRadius = Math.pow(10, (0.5 * magnitude - 1.8)) * 1000;
                 fillOpacity: 0.7,
             }).addTo(map);
 
