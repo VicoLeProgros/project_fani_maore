@@ -64,40 +64,47 @@
 </head>
 <body>
     <div id="filter-panel">
-        <div id="excel-container">
-            <button onclick="importVillages()">Importer les villages</button>
-        </div>
-        
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.1/xlsx.full.min.js"></script>
-        
-        <script>
-            function importVillages() {
-                const excelUrl = 'https://raw.githubusercontent.com/VicoLeProgros/project_fani_maore/main/pages/types_batiments.xlsx';
-                
-                fetch(excelUrl)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Le fichier Excel n\'a pas pu être téléchargé.');
-                        }
-                        return response.arrayBuffer();  // Récupérer le fichier sous forme de buffer
-                    })
-                    .then(data => {
-                        const workbook = XLSX.read(data, { type: 'array' });  // Lire le fichier Excel
-                        const sheetName = workbook.SheetNames[0];  // Prendre la première feuille
-                        const sheet = workbook.Sheets[sheetName];
-        
-                        // Convertir la feuille en JSON
-                        const villagesData = XLSX.utils.sheet_to_json(sheet);
-                        console.log(villagesData);  // Affiche les données des villages pour vérification
-        
-                        // Vous pouvez ensuite appeler la fonction qui ajoute les villages à la carte
-                        addVillagesToMap(villagesData);
-                    })
-                    .catch(error => {
-                        console.error('Erreur lors du téléchargement du fichier Excel:', error);
-                    });
-            }
-        </script>
+            <div id="excel-container">
+        <button onclick="importVillages()">Importer les villages</button>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.1/xlsx.full.min.js"></script>
+    
+    <script>
+        // Ta fonction readExcel déjà définie dans ton code
+        function readExcel(data) {
+            const workbook = XLSX.read(data, { type: 'array' });  // Lire le fichier Excel
+            const sheetName = workbook.SheetNames[0];  // Prendre la première feuille
+            const sheet = workbook.Sheets[sheetName];
+    
+            // Convertir la feuille en JSON
+            const villagesData = XLSX.utils.sheet_to_json(sheet);
+            console.log(villagesData);  // Affiche les données des villages pour vérification
+    
+            // Tu peux ajouter les villages à la carte ici, comme dans ton code initial
+            // addVillagesToMap(villagesData);
+        }
+    
+        // Fonction pour télécharger le fichier Excel et l'importer
+        function importVillages() {
+            const excelUrl = 'https://raw.githubusercontent.com/VicoLeProgros/project_fani_maore/main/pages/types_batiments.xlsx';
+            
+            fetch(excelUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Le fichier Excel n\'a pas pu être téléchargé.');
+                    }
+                    return response.arrayBuffer();  // Récupérer le fichier sous forme de buffer
+                })
+                .then(data => {
+                    // Appeler ta fonction readExcel() avec les données téléchargées
+                    readExcel(data);
+                })
+                .catch(error => {
+                    console.error('Erreur lors du téléchargement du fichier Excel:', error);
+                });
+        }
+    </script>
 
         <h2>Filtrer les villages</h1>
         <label for="filter-soil">Type de sol principal :</label>
