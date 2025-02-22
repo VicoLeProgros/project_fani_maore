@@ -84,7 +84,7 @@
                     // Convertir en JSON
                     const jsonData = XLSX.utils.sheet_to_json(sheet);
                     console.log("Données du fichier Excel :", jsonData);
-        
+                    return jsonData
                     // TODO : Traitez les données ici (par ex. mise à jour d'une liste déroulante)
                 } catch (error) {
                     console.error("Erreur lors du chargement du fichier Excel :", error);
@@ -176,32 +176,10 @@
     legend.addTo(map);
 
 
-    let villagesData = []; // Tableau pour stocker les données des villages
+    let villagesData = jsonData; // Tableau pour stocker les données des villages
 
 
-    
-    function readExcel() {
-        const fileInput = document.getElementById('excel-file');
-        const file = fileInput.files[0];
 
-        if (!file) {
-            alert("Veuillez sélectionner un fichier Excel.");
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-
-            villagesData = XLSX.utils.sheet_to_json(worksheet);
-
-            if (villagesData.length === 0) {
-                alert("Le fichier semble vide ou mal formaté.");
-                return;
-            }
 
             // Fonction pour mettre à jour la liste déroulante avec les villages, triés par ordre alphabétique
             function updateVillageSelect() {
