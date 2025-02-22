@@ -156,22 +156,21 @@
 
     
     function readExcel() {
-        //const fileInput = document.getElementById('excel-file');
-        const file = './types_batiments.xlsx';
+    const file = './types_batiments.xlsx';  // Chemin vers le fichier Excel
 
-        if (!file) {
-            alert("Veuillez sélectionner un fichier Excel.");
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const data = new Uint8Array(e.target.result);
+    fetch(file)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Le fichier Excel n'a pas pu être téléchargé.");
+            }
+            return response.arrayBuffer();  // Récupérer le fichier sous forme de buffer
+        })
+        .then(data => {
             const workbook = XLSX.read(data, { type: 'array' });
-            const sheetName = workbook.SheetNames[0];
+            const sheetName = workbook.SheetNames[0];  // Prendre la première feuille
             const worksheet = workbook.Sheets[sheetName];
 
-            villagesData = XLSX.utils.sheet_to_json(worksheet);
+            let villagesData = XLSX.utils.sheet_to_json(worksheet);
 
             if (villagesData.length === 0) {
                 alert("Le fichier semble vide ou mal formaté.");
@@ -261,10 +260,12 @@
                     }
                 }
             });
-        };
-
-        reader.readAsArrayBuffer(file);
-    }
+        })
+        .catch(error => {
+            console.error("Erreur lors du téléchargement du fichier Excel:", error);
+        });
+}
+</script>
 
 
     // Fonction de recherche de village
