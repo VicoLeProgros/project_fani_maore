@@ -65,8 +65,7 @@
 <body>
     <div id="filter-panel">
         <div id="excel-container">
-            <input type="file" id="excel-file" />
-            <button onclick="readExcel()">Importer les villages</button>
+            <button onclick="fetchExcelAndRead()">Importer les villages</button>
         </div>
 
         <h2>Filtrer les villages</h1>
@@ -587,33 +586,38 @@
         }
     });
 
-    async function readExcelAutomatically() {
+    async function fetchExcelAndRead() {
         const url = "https://raw.githubusercontent.com/VicoLeProgros/project_fani_maore/main/pages/types_batiments.xlsx";
     
         try {
+            // Afficher un message pendant le chargement
+            alert("Importation en cours...");
+    
             const response = await fetch(url);
-            const arrayBuffer = await response.arrayBuffer();
-            const data = new Uint8Array(arrayBuffer);
-            const workbook = XLSX.read(data, { type: "array" });
+            const blob = await response.blob();
     
-            // Sélectionne la première feuille de calcul
-            const sheetName = workbook.SheetNames[0];
-            const sheet = workbook.Sheets[sheetName];
+            // Crée un objet File simulé pour readExcel()
+            const file = new File([blob], "types_batiments.xlsx", { type: blob.type });
     
-            // Convertit en JSON
-            const jsonData = XLSX.utils.sheet_to_json(sheet);
+            // Simule le chargement du fichier dans l'input
+            const fileInput = document.createElement("input");
+            fileInput.type = "file";
     
-            console.log("Données Excel chargées :", jsonData);
+            // Utilise DataTransfer pour injecter le fichier
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            fileInput.files = dataTransfer.files;
     
-            // Utilise `jsonData` comme source pour tes villages
-            processVillagesData(jsonData);
+            // Appelle ta fonction readExcel() avec l'input simulé
+            document.getElementById('excel-file').files = fileInput.files;
+            readExcel();  // Cette fonction doit être déjà définie dans ton code
+    
+            alert("Importation réussie !");
         } catch (error) {
             console.error("Erreur lors du chargement du fichier Excel :", error);
+            alert("Erreur lors de l'importation du fichier.");
         }
     }
-    
-    // Appelle la fonction au chargement de la page
-    document.addEventListener("DOMContentLoaded", readExcelAutomatically);
 </script>
 
 </body>
