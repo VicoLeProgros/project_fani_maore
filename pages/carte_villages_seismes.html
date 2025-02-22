@@ -63,48 +63,10 @@
     </style>
 </head>
 <body>
-    <div id="filter-panel">
-            <div id="excel-container">
-        <button onclick="importVillages()">Importer les villages</button>
+    <div id="excel-container">
+        <button onclick="readExcel()">Importer les villages</button>
     </div>
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.1/xlsx.full.min.js"></script>
-    
-    <script>
-        // Ta fonction readExcel déjà définie dans ton code
-        function readExcel(data) {
-            const workbook = XLSX.read(data, { type: 'array' });  // Lire le fichier Excel
-            const sheetName = workbook.SheetNames[0];  // Prendre la première feuille
-            const sheet = workbook.Sheets[sheetName];
-    
-            // Convertir la feuille en JSON
-            const villagesData = XLSX.utils.sheet_to_json(sheet);
-            console.log(villagesData);  // Affiche les données des villages pour vérification
-    
-            // Tu peux ajouter les villages à la carte ici, comme dans ton code initial
-            // addVillagesToMap(villagesData);
-        }
-    
-        // Fonction pour télécharger le fichier Excel et l'importer
-        function importVillages() {
-            const excelUrl = './types_batiments.xlsx';
-            
-            fetch(excelUrl)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Le fichier Excel n\'a pas pu être téléchargé.');
-                    }
-                    return response.arrayBuffer();  // Récupérer le fichier sous forme de buffer
-                })
-                .then(data => {
-                    // Appeler ta fonction readExcel() avec les données téléchargées
-                    readExcel(data);
-                })
-                .catch(error => {
-                    console.error('Erreur lors du téléchargement du fichier Excel:', error);
-                });
-        }
-    </script>
 
         <h2>Filtrer les villages</h1>
         <label for="filter-soil">Type de sol principal :</label>
@@ -194,116 +156,118 @@
 
 
     
+    <script>
     function readExcel() {
-        const fileInput = document.getElementById('excel-file');
-        const file = fileInput.files[0];
+        const excelUrl = './types_batiments.xlsx';  // Chemin vers ton fichier Excel
 
-        if (!file) {
-            alert("Veuillez sélectionner un fichier Excel.");
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-
-            villagesData = XLSX.utils.sheet_to_json(worksheet);
-
-            if (villagesData.length === 0) {
-                alert("Le fichier semble vide ou mal formaté.");
-                return;
-            }
-
-            // Fonction pour mettre à jour la liste déroulante avec les villages, triés par ordre alphabétique
-            function updateVillageSelect() {
-                const villageSelect = document.getElementById('village-select');
-                villageSelect.innerHTML = '<option value="">-- Choisissez un village --</option>'; // Vider l'ancienne liste
-
-                // Trier les villages par nom alphabétiquement
-                const sortedVillages = villagesData.sort((a, b) => {
-                    const nameA = a["Nom Village"].toUpperCase(); // Ignorer la casse
-                    const nameB = b["Nom Village"].toUpperCase(); // Ignorer la casse
-                    if (nameA < nameB) {
-                        return -1;
-                    }
-                    if (nameA > nameB) {
-                        return 1;
-                    }
-                    return 0;
-                });
-
-                // Ajouter les villages triés à la liste déroulante
-                sortedVillages.forEach(village => {
-                    const option = document.createElement('option');
-                    option.value = village["Nom Village"];
-                    option.textContent = village["Nom Village"];
-                    villageSelect.appendChild(option);
-                });
-            }
-
-            // Appeler cette fonction après avoir chargé les villages dans readExcel
-            updateVillageSelect();
-
-            // Nettoyage de la carte avant d'ajouter les nouveaux villages
-            map.eachLayer(layer => {
-                if (layer instanceof L.CircleMarker) {
-                    map.removeLayer(layer);
+        fetch(excelUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Le fichier Excel n'a pas pu être téléchargé.");
                 }
-            });
+                return response.arrayBuffer();  // Récupérer le fichier sous forme de buffer
+            })
+            .then(data => {
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];  // Prendre la première feuille
+                const worksheet = workbook.Sheets[sheetName];
 
-            // Récupérer les filtres
-            const selectedSoil = document.getElementById('filter-soil').value;
-            const minVulnerability = parseFloat(document.getElementById('filter-vulnerability').value);
-            const minPopulation = parseFloat(document.getElementById('filter-population').value);
+                let villagesData = XLSX.utils.sheet_to_json(worksheet);
 
-            // Seuils de normalisation cohérents avec addVillageToMap()
-            const maxPopulation = 17733;  // maximum théorique de population
-            const maxPctTerre = 100;      // 100% de terre
-            const maxhablogements = 5.1;
-            const maxIndiceVulnerabilite = (maxPctTerre * 3) * Math.log2(maxPopulation) * maxhablogements;
+                if (villagesData.length === 0) {
+                    alert("Le fichier semble vide ou mal formaté.");
+                    return;
+                }
 
-            // Ajout des villages filtrés sur la carte
-            villagesData.forEach(village => {
-                if (village["Latitude"] && village["Longitude"]) {
-                    let lat = parseFloat(village["Latitude"].toString().replace(",", "."));
-                    let lng = parseFloat(village["Longitude"].toString().replace(",", "."));
+                // Fonction pour mettre à jour la liste déroulante avec les villages, triés par ordre alphabétique
+                function updateVillageSelect() {
+                    const villageSelect = document.getElementById('village-select');
+                    villageSelect.innerHTML = '<option value="">-- Choisissez un village --</option>'; // Vider l'ancienne liste
 
-                    if (!isNaN(lat) && !isNaN(lng)) {
-                        const totalLogements = parseFloat(village["Total"] || 0);
-                        const popMoyLogement = parseFloat(village["Nombre moyen de personnes par logement"] || 0);
-                        const population = totalLogements * popMoyLogement;
+                    // Trier les villages par nom alphabétiquement
+                    const sortedVillages = villagesData.sort((a, b) => {
+                        const nameA = a["Nom Village"].toUpperCase(); // Ignorer la casse
+                        const nameB = b["Nom Village"].toUpperCase(); // Ignorer la casse
+                        if (nameA < nameB) {
+                            return -1;
+                        }
+                        if (nameA > nameB) {
+                            return 1;
+                        }
+                        return 0;
+                    });
 
-                        const pctTerre = totalLogements ? (village["Sol en terre battue"] / totalLogements * 100) : 0;
-                        const pctBeton = totalLogements ? (village["Sol en beton"] / totalLogements * 100) : 0;
-                        const pctCarrelage = totalLogements ? (village["Sol en carrelage ou autre"] / totalLogements * 100) : 0;
+                    // Ajouter les villages triés à la liste déroulante
+                    sortedVillages.forEach(village => {
+                        const option = document.createElement('option');
+                        option.value = village["Nom Village"];
+                        option.textContent = village["Nom Village"];
+                        villageSelect.appendChild(option);
+                    });
+                }
 
-                        const logPopulation = population > 0 ? Math.log2(population) : 1;
-                        const indiceVulnerabiliteBrut = (pctTerre * 3 + pctBeton * 2 + pctCarrelage * 1) * logPopulation * popMoyLogement;
+                // Appeler cette fonction après avoir chargé les villages dans readExcel
+                updateVillageSelect();
 
-                        // Normalisation de l'indice pour être entre 0 et 100
-                        const indiceNormalise = Math.min(Math.max((indiceVulnerabiliteBrut / maxIndiceVulnerabilite) * 100, 0), 100);
+                // Nettoyage de la carte avant d'ajouter les nouveaux villages
+                map.eachLayer(layer => {
+                    if (layer instanceof L.CircleMarker) {
+                        map.removeLayer(layer);
+                    }
+                });
 
-                        let mainSoil = "Autre";
-                        if (pctTerre > pctBeton && pctTerre > pctCarrelage) mainSoil = "Terre Battue";
-                        else if (pctBeton > pctCarrelage) mainSoil = "Béton";
-                        else mainSoil = "Carrelage";
+                // Récupérer les filtres
+                const selectedSoil = document.getElementById('filter-soil').value;
+                const minVulnerability = parseFloat(document.getElementById('filter-vulnerability').value);
+                const minPopulation = parseFloat(document.getElementById('filter-population').value);
 
-                        // Appliquer les filtres
-                        if ((selectedSoil === "all" || selectedSoil === mainSoil) &&
-                            indiceNormalise >= minVulnerability &&
-                            population >= minPopulation) {
-                            addVillageToMap(village);
+                // Seuils de normalisation cohérents avec addVillageToMap()
+                const maxPopulation = 17733;  // maximum théorique de population
+                const maxPctTerre = 100;      // 100% de terre
+                const maxhablogements = 5.1;
+                const maxIndiceVulnerabilite = (maxPctTerre * 3) * Math.log2(maxPopulation) * maxhablogements;
+
+                // Ajout des villages filtrés sur la carte
+                villagesData.forEach(village => {
+                    if (village["Latitude"] && village["Longitude"]) {
+                        let lat = parseFloat(village["Latitude"].toString().replace(",", "."));
+                        let lng = parseFloat(village["Longitude"].toString().replace(",", "."));
+
+                        if (!isNaN(lat) && !isNaN(lng)) {
+                            const totalLogements = parseFloat(village["Total"] || 0);
+                            const popMoyLogement = parseFloat(village["Nombre moyen de personnes par logement"] || 0);
+                            const population = totalLogements * popMoyLogement;
+
+                            const pctTerre = totalLogements ? (village["Sol en terre battue"] / totalLogements * 100) : 0;
+                            const pctBeton = totalLogements ? (village["Sol en beton"] / totalLogements * 100) : 0;
+                            const pctCarrelage = totalLogements ? (village["Sol en carrelage ou autre"] / totalLogements * 100) : 0;
+
+                            const logPopulation = population > 0 ? Math.log2(population) : 1;
+                            const indiceVulnerabiliteBrut = (pctTerre * 3 + pctBeton * 2 + pctCarrelage * 1) * logPopulation * popMoyLogement;
+
+                            // Normalisation de l'indice pour être entre 0 et 100
+                            const indiceNormalise = Math.min(Math.max((indiceVulnerabiliteBrut / maxIndiceVulnerabilite) * 100, 0), 100);
+
+                            let mainSoil = "Autre";
+                            if (pctTerre > pctBeton && pctTerre > pctCarrelage) mainSoil = "Terre Battue";
+                            else if (pctBeton > pctCarrelage) mainSoil = "Béton";
+                            else mainSoil = "Carrelage";
+
+                            // Appliquer les filtres
+                            if ((selectedSoil === "all" || selectedSoil === mainSoil) &&
+                                indiceNormalise >= minVulnerability &&
+                                population >= minPopulation) {
+                                addVillageToMap(village);
+                            }
                         }
                     }
-                }
+                });
+            })
+            .catch(error => {
+                console.error("Erreur lors du téléchargement du fichier Excel:", error);
             });
-        };
-
-        reader.readAsArrayBuffer(file);
     }
+</script>
 
 
     // Fonction de recherche de village
