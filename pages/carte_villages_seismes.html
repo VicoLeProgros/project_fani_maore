@@ -6,6 +6,7 @@
     <title>Carte interactive</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.4/xlsx.full.min.js"></script>
+    
     <style>
         body {
             display: flex;
@@ -585,6 +586,34 @@
             }
         }
     });
+
+    async function readExcelAutomatically() {
+        const url = "https://raw.githubusercontent.com/VicoLeProgros/project_fani_maore/main/pages/types_batiments.xlsx";
+    
+        try {
+            const response = await fetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+            const data = new Uint8Array(arrayBuffer);
+            const workbook = XLSX.read(data, { type: "array" });
+    
+            // Sélectionne la première feuille de calcul
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+    
+            // Convertit en JSON
+            const jsonData = XLSX.utils.sheet_to_json(sheet);
+    
+            console.log("Données Excel chargées :", jsonData);
+    
+            // Utilise `jsonData` comme source pour tes villages
+            processVillagesData(jsonData);
+        } catch (error) {
+            console.error("Erreur lors du chargement du fichier Excel :", error);
+        }
+    }
+    
+    // Appelle la fonction au chargement de la page
+    document.addEventListener("DOMContentLoaded", readExcelAutomatically);
 </script>
 
 </body>
