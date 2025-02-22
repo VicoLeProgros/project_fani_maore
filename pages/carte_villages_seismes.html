@@ -62,12 +62,14 @@
     </style>
 </head>
 <body>
+    <h1>Avant de commencer, veuillez importer le fichier types_batiments.xlsx</h1>
     <div id="filter-panel">
-        <div id="button-container">
+        <div id="excel-container">
+            <input type="file" id="excel-file" />
             <button onclick="readExcel()">Importer les villages</button>
         </div>
 
-        <h2>Filtrer les villages</h1>
+        <h2>Filtrer les villages</h2>
         <label for="filter-soil">Type de sol principal :</label>
         <select id="filter-soil">
             <option value="all">Tous</option>
@@ -156,21 +158,22 @@
 
     
     function readExcel() {
-    const file = './types_batiments.xlsx';  // Chemin vers le fichier Excel
+        const fileInput = document.getElementById('excel-file');
+        const file = fileInput.files[0];
 
-    fetch(file)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error("Le fichier Excel n'a pas pu être téléchargé.");
-            }
-            return response.arrayBuffer();  // Récupérer le fichier sous forme de buffer
-        })
-        .then(data => {
+        if (!file) {
+            alert("Veuillez sélectionner un fichier Excel.");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
-            const sheetName = workbook.SheetNames[0];  // Prendre la première feuille
+            const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
 
-            let villagesData = XLSX.utils.sheet_to_json(worksheet);
+            villagesData = XLSX.utils.sheet_to_json(worksheet);
 
             if (villagesData.length === 0) {
                 alert("Le fichier semble vide ou mal formaté.");
@@ -260,12 +263,10 @@
                     }
                 }
             });
-        })
-        .catch(error => {
-            console.error("Erreur lors du téléchargement du fichier Excel:", error);
-        });
-}
-</script>
+        };
+
+        reader.readAsArrayBuffer(file);
+    }
 
 
     // Fonction de recherche de village
