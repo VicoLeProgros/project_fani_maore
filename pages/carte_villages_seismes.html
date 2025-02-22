@@ -65,8 +65,39 @@
 <body>
     <div id="filter-panel">
         <div id="excel-container">
-            <button onclick="fetchExcelAndRead()">Importer les villages</button>
+            <button onclick="importVillages()">Importer les villages</button>
         </div>
+        
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.1/xlsx.full.min.js"></script>
+        
+        <script>
+            function importVillages() {
+                const excelUrl = 'https://raw.githubusercontent.com/VicoLeProgros/project_fani_maore/main/pages/types_batiments.xlsx';
+                
+                fetch(excelUrl)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Le fichier Excel n\'a pas pu être téléchargé.');
+                        }
+                        return response.arrayBuffer();  // Récupérer le fichier sous forme de buffer
+                    })
+                    .then(data => {
+                        const workbook = XLSX.read(data, { type: 'array' });  // Lire le fichier Excel
+                        const sheetName = workbook.SheetNames[0];  // Prendre la première feuille
+                        const sheet = workbook.Sheets[sheetName];
+        
+                        // Convertir la feuille en JSON
+                        const villagesData = XLSX.utils.sheet_to_json(sheet);
+                        console.log(villagesData);  // Affiche les données des villages pour vérification
+        
+                        // Vous pouvez ensuite appeler la fonction qui ajoute les villages à la carte
+                        // addVillagesToMap(villagesData);
+                    })
+                    .catch(error => {
+                        console.error('Erreur lors du téléchargement du fichier Excel:', error);
+                    });
+            }
+        </script>
 
         <h2>Filtrer les villages</h1>
         <label for="filter-soil">Type de sol principal :</label>
@@ -585,39 +616,6 @@
             }
         }
     });
-
-    async function fetchExcelAndRead() {
-        const url = "https://raw.githubusercontent.com/VicoLeProgros/project_fani_maore/main/pages/types_batiments.xlsx";
-    
-        try {
-            // Afficher un message pendant le chargement
-            alert("Importation en cours...");
-    
-            const response = await fetch(url);
-            const blob = await response.blob();
-    
-            // Crée un objet File simulé pour readExcel()
-            const file = new File([blob], "types_batiments.xlsx", { type: blob.type });
-    
-            // Simule le chargement du fichier dans l'input
-            const fileInput = document.createElement("input");
-            fileInput.type = "file";
-    
-            // Utilise DataTransfer pour injecter le fichier
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
-            fileInput.files = dataTransfer.files;
-    
-            // Appelle ta fonction readExcel() avec l'input simulé
-            document.getElementById('excel-file').files = fileInput.files;
-            readExcel();  // Cette fonction doit être déjà définie dans ton code
-    
-            alert("Importation réussie !");
-        } catch (error) {
-            console.error("Erreur lors du chargement du fichier Excel :", error);
-            alert("Erreur lors de l'importation du fichier.");
-        }
-    }
 </script>
 
 </body>
