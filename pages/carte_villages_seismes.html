@@ -63,44 +63,9 @@
 </head>
 <body>
     <div id="filter-panel">
-        <div id="excel-container">
-            <button onclick="loadExcelFromGitHub()">Importer les villages</button>
-        </div>
-        
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script>
-    const GITHUB_FILE_URL = "./types_batiments.xlsx";
 
-    async function loadExcelFromGitHub() {
-        try {
-            const response = await fetch(GITHUB_FILE_URL);
-            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-
-            const arrayBuffer = await response.arrayBuffer();
-
-            // Lire le fichier Excel avec SheetJS
-            const workbook = XLSX.read(arrayBuffer, { type: "array" });
-            const sheetName = workbook.SheetNames[0]; // Première feuille
-            const sheet = workbook.Sheets[sheetName];
-
-            // Convertir en JSON
-            const jsonData = XLSX.utils.sheet_to_json(sheet);
-            console.log("Données du fichier Excel :", jsonData);
-
-            // 🎯 Exemple : Affichage dans la page
-            const container = document.createElement("pre");
-            container.textContent = JSON.stringify(jsonData, null, 2);
-            document.body.appendChild(container);
-
-        } catch (error) {
-            console.error("❌ Erreur lors du chargement du fichier Excel :", error);
-        }
-    }
-</script>
-
-
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
         <h2>Filtrer les villages</h1>
         <label for="filter-soil">Type de sol principal :</label>
         <select id="filter-soil">
@@ -147,101 +112,112 @@
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
+    const GITHUB_FILE_URL = "./types_batiments.xlsx";
 
     // Initialisation de la carte
     var map = L.map('map').setView([-12.8516, 45.0485], 11);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // Ajout d'une légende pour expliquer les couleurs des cercles
+    // Ajout d'une légende
     var legend = L.control({ position: 'bottomright' });
-
-    legend.onAdd = function(map) {
+    legend.onAdd = function (map) {
         var div = L.DomUtil.create('div', 'info legend');
-
-        // Ajout du titre
         div.innerHTML = "<h4>Indice de vulnérabilité</h4>";
-
-        var grades = [0, 50, 80]; // Seuils pour la vulnérabilité
+        var grades = [0, 50, 80];
         var labels = ['<strong>Légende</strong>'];
 
-        // Fonction pour récupérer la couleur correspondant aux indices de vulnérabilité
         function getColor(v) {
             return v >= 80 ? 'red' :
-                v >= 50 ? 'orange' :
-                            'green';
+                   v >= 50 ? 'orange' : 'green';
         }
 
-        // Générer les éléments de la légende
         for (var i = 0; i < grades.length; i++) {
             div.innerHTML +=
                 '<i style="background:' + getColor(grades[i]) + '; width: 18px; height: 18px; display: inline-block; margin-right: 5px;"></i> ' +
                 (i === 0 ? 'Faible' : i === 1 ? 'Moyenne' : 'Élevée') + '<br>';
         }
-
         return div;
     };
-
-    // Ajouter la légende à la carte
     legend.addTo(map);
 
+    let villagesData = [];
+    let markers = [];
 
-    let villagesData = []; // Tableau pour stocker les données des villages
+    async function loadExcelFromGitHub() {
+        try {
+            const response = await fetch(GITHUB_FILE_URL);
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
 
-
-    
-    function readExcel() {
-        const fileInput = document.getElementById('excel-file');
-        const file = fileInput.files[0];
-
-        if (!file) {
-            alert("Veuillez sélectionner un fichier Excel.");
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
+            const arrayBuffer = await response.arrayBuffer();
+            const workbook = XLSX.read(arrayBuffer, { type: "array" });
             const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
+            const sheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(sheet);
 
-            villagesData = XLSX.utils.sheet_to_json(worksheet);
+            return jsonData;
+        } catch (error) {
+            console.error("❌ Erreur lors du chargement du fichier Excel :", error);
+            return null;
+        }
+    }
 
-            if (villagesData.length === 0) {
-                alert("Le fichier semble vide ou mal formaté.");
-                return;
+    function updateVillageSelect() {
+        const villageSelect = document.getElementById('village-select');
+        villageSelect.innerHTML = '<option value="">-- Choisissez un village --</option>';
+
+        const sortedVillages = villagesData.sort((a, b) => {
+            return a["Nom Village"].localeCompare(b["Nom Village"]);
+        });
+
+        sortedVillages.forEach(village => {
+            const option = document.createElement('option');
+            option.value = village["Nom Village"];
+            option.textContent = village["Nom Village"];
+            villageSelect.appendChild(option);
+        });
+    }
+
+    function getColor(v) {
+        return v >= 80 ? 'red' :
+               v >= 50 ? 'orange' : 'green';
+    }
+
+    function addVillageMarkers() {
+        markers.forEach(marker => map.removeLayer(marker));
+        markers = [];
+
+        villagesData.forEach(village => {
+            if (village.Latitude && village.Longitude) {
+                const circle = L.circleMarker([village.Latitude, village.Longitude], {
+                    radius: 8,
+                    fillColor: getColor(village["Indice Vulnérabilité"]),
+                    color: "#000",
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map);
+
+                circle.bindPopup(`<strong>${village["Nom Village"]}</strong><br>Indice de vulnérabilité : ${village["Indice Vulnérabilité"]}`);
+                markers.push(circle);
             }
+        });
+    }
 
-            // Fonction pour mettre à jour la liste déroulante avec les villages, triés par ordre alphabétique
-            function updateVillageSelect() {
-                const villageSelect = document.getElementById('village-select');
-                villageSelect.innerHTML = '<option value="">-- Choisissez un village --</option>'; // Vider l'ancienne liste
+    document.getElementById('village-select').addEventListener('change', function () {
+        const selectedVillage = villagesData.find(v => v["Nom Village"] === this.value);
+        if (selectedVillage) {
+            map.setView([selectedVillage.Latitude, selectedVillage.Longitude], 13);
+        }
+    });
 
-                // Trier les villages par nom alphabétiquement
-                const sortedVillages = villagesData.sort((a, b) => {
-                    const nameA = a["Nom Village"].toUpperCase(); // Ignorer la casse
-                    const nameB = b["Nom Village"].toUpperCase(); // Ignorer la casse
-                    if (nameA < nameB) {
-                        return -1;
-                    }
-                    if (nameA > nameB) {
-                        return 1;
-                    }
-                    return 0;
-                });
-
-                // Ajouter les villages triés à la liste déroulante
-                sortedVillages.forEach(village => {
-                    const option = document.createElement('option');
-                    option.value = village["Nom Village"];
-                    option.textContent = village["Nom Village"];
-                    villageSelect.appendChild(option);
-                });
-            }
-
-            // Appeler cette fonction après avoir chargé les villages dans readExcel
+    (async () => {
+        const data = await loadExcelFromGitHub();
+        if (data) {
+            villagesData = data;
             updateVillageSelect();
-
+            addVillageMarkers();
+        }
+    })();
             // Nettoyage de la carte avant d'ajouter les nouveaux villages
             map.eachLayer(layer => {
                 if (layer instanceof L.CircleMarker) {
